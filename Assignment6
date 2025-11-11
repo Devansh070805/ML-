@@ -1,0 +1,70 @@
+import numpy as np
+import pandas as pd
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import accuracy_score
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+
+# gaussian naive-bayes on iris dataset
+iris = load_iris()
+X = iris.data
+y = iris.target
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# using step-wise implementation
+class GaussianNaiveBayes:
+    def fit(self, X, y):
+        self.classes = np.unique(y)
+        self.mean = {}
+        self.var = {}
+        self.priors = {}
+
+        for c in self.classes:
+            X_c = X[y == c]
+            self.mean[c] = X_c.mean(axis=0)
+            self.var[c] = X_c.var(axis=0)
+            self.priors[c] = X_c.shape[0] / X.shape[0]
+
+    def predict(self, X):
+        y_pred = [self._predict(x) for x in X]
+        return np.array(y_pred)
+
+    def _predict(self, x):
+        posteriors = []
+        for c in self.classes:
+            prior = np.log(self.priors[c])
+            likelihood = -0.5 * np.sum(np.log(2 * np.pi * self.var[c]))
+            likelihood -= 0.5 * np.sum(((x - self.mean[c]) ** 2) / self.var[c])
+            posterior = prior + likelihood
+            posteriors.append(posterior)
+        return self.classes[np.argmax(posteriors)]
+
+gnb_manual = GaussianNaiveBayes()
+gnb_manual.fit(X_train, y_train)
+y_pred_manual = gnb_manual.predict(X_test)
+manual_accuracy = accuracy_score(y_test, y_pred_manual)
+
+# using the in-built function
+
+gnb_builtin = GaussianNB()
+gnb_builtin.fit(X_train, y_train)
+y_pred_builtin = gnb_builtin.predict(X_test)
+builtin_accuracy = accuracy_score(y_test, y_pred_builtin)
+
+# knn
+knn = KNeighborsClassifier()
+param_grid = {'n_neighbors': np.arange(1, 20)}
+grid_search = GridSearchCV(knn, param_grid, cv=5)
+grid_search.fit(X, y)
+
+best_k = grid_search.best_params_['n_neighbors']
+best_score = grid_search.best_score_
+
+results = pd.DataFrame({
+    "Model": ["Gaussian NB (Manual)", "Gaussian NB (Built-in)", "Best K (KNN via GridSearchCV)"],
+    "Accuracy/Score": [manual_accuracy, builtin_accuracy, best_score],
+    "Details": ["Step-by-step implementation", "Using sklearn GaussianNB()", f"Best k = {best_k}"]
+})
+
+print(results)
